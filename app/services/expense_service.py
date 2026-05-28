@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session, joinedload
-from app.models.expense import Expense
-from app.models.job import Job
+from models.expense import Expense
+from models.job import Job
 
 from fastapi import HTTPException
 

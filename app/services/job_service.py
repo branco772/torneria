@@ -1,7 +1,7 @@
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
-from app.models.payment import Payment
-from app.models.job import Job
+from models.payment import Payment
+from models.job import Job
 
 from fastapi import HTTPException
 

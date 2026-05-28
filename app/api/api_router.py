@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.routes import job_routes, client_routes, worker_routes, payment_routes, expense_routes, report_routes, dashboard_routes, auth_routes, users_routes, epp_routes
+from api.routes import job_routes, client_routes, worker_routes, payment_routes, expense_routes, report_routes, dashboard_routes, auth_routes, users_routes, epp_routes
 
 router=APIRouter()
 

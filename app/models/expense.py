@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, DECIMAL, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from app.core.database import Base
+from core.database import Base
 
 
 class Expense(Base):

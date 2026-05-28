@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
 from fastapi.responses import StreamingResponse, FileResponse
 from sqlalchemy.orm import Session
-from app.core.deps import get_db
-from app.services.epp_service import (
+from core.deps import get_db
+from services.epp_service import (
     generate_frames,
     get_evidence,
     get_epp_stats,

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.auth_schema import normalize_username
+from schemas.auth_schema import normalize_username
 
 
 class UserUpdate(BaseModel):

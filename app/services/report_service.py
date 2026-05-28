@@ -2,12 +2,12 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from datetime import date
 
-from app.models.payment import Payment
-from app.models.expense import Expense
+from models.payment import Payment
+from models.expense import Expense
 
-from app.models.job import Job
-from app.models.worker import Worker
-from app.models.client import Client
+from models.job import Job
+from models.worker import Worker
+from models.client import Client
 
 def get_daily_report(db: Session, report_date: date):
     

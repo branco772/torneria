@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-from app.core.deps import get_db
-from app.models.user import User
-from app.core.security import create_access_token, get_current_user, hash_password, verify_password
-from app.schemas.user_schema import DeleteAccount, PasswordChange, UserUpdate
+from core.deps import get_db
+from models.user import User
+from core.security import create_access_token, get_current_user, hash_password, verify_password
+from schemas.user_schema import DeleteAccount, PasswordChange, UserUpdate
 
 
 

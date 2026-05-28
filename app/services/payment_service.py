@@ -1,7 +1,7 @@
 from sqlalchemy.orm import Session
-from app.models.payment import Payment
-from app.models.job import Job
-from app.services.job_service import update_job_status
+from models.payment import Payment
+from models.job import Job
+from services.job_service import update_job_status
 
 from fastapi import HTTPException
 from sqlalchemy import func

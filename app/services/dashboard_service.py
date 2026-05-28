@@ -1,10 +1,10 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 
-from app.models.payment import Payment
-from app.models.expense import Expense
-from app.models.job import Job
-from app.models.client import Client
+from models.payment import Payment
+from models.expense import Expense
+from models.job import Job
+from models.client import Client
 from datetime import datetime
 
 

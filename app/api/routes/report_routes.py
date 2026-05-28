@@ -4,9 +4,9 @@ from datetime import date
 import csv
 from io import StringIO
 
-from app.core.deps import get_db
-from app.schemas.report_schema import DailyReportResponse, WorkerProfitResponse, RangeReportResponse
-from app.services.report_service import (
+from core.deps import get_db
+from schemas.report_schema import DailyReportResponse, WorkerProfitResponse, RangeReportResponse
+from services.report_service import (
     get_daily_report,
     get_profit_by_worker,
     get_report_by_range,
@@ -16,7 +16,7 @@ from app.services.report_service import (
     get_reports_profit,
     get_reports_top_jobs
 )
-from app.core.security import get_current_user
+from core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

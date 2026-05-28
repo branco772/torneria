@@ -4,8 +4,8 @@ import os
 import threading
 from datetime import datetime, timedelta
 from sqlalchemy import func
-from app.core.database import SessionLocal
-from app.models.epp_event import EPPEvent
+from core.database import SessionLocal
+from models.epp_event import EPPEvent
 
 # 🔥 CARGAR MODELO
 model = YOLO("ai/runs/detect/train-11/weights/best.pt")

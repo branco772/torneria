@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_db
-from app.models.payment import Payment
-from app.models.job import Job
-from app.services.job_service import update_job_status
-from app.schemas.payment_schema import PaymentCreate, PaymentResponse
-from app.core.security import get_current_user
+from core.deps import get_db
+from models.payment import Payment
+from models.job import Job
+from services.job_service import update_job_status
+from schemas.payment_schema import PaymentCreate, PaymentResponse
+from core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

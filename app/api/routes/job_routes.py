@@ -1,11 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
-from app.models.job import Job
-
-from app.core.deps import get_db
-from app.schemas.job_schema import JobCreate, JobResponse
-from app.services.job_service import create_job, get_jobs
-from app.core.security import get_current_user
+from models.job import Job
+from core.deps import get_db
+from schemas.job_schema import JobCreate, JobResponse
+from services.job_service import create_job, get_jobs
+from core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

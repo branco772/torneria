@@ -1,20 +1,20 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models.job import Job
-from app.models.expense import Expense
-from app.models.payment import Payment
-from app.models.client import Client
-from app.models.worker import Worker
+from models.job import Job
+from models.expense import Expense
+from models.payment import Payment
+from models.client import Client
+from models.worker import Worker
 
-from app.core.deps import get_db
-from app.schemas.dashboard_schema import DashboardResponse
-from app.services.dashboard_service import get_dashboard, get_income_by_day, get_top_debtors, get_alerts, get_expenses_by_category
-from app.core.security import get_current_user
+from core.deps import get_db
+from schemas.dashboard_schema import DashboardResponse
+from services.dashboard_service import get_dashboard, get_income_by_day, get_top_debtors, get_alerts, get_expenses_by_category
+from core.security import get_current_user
 from typing import Optional
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
-from app.services.ml_service import predict_income
+from services.ml_service import predict_income
 
 
 @router.get("/dashboard", response_model=DashboardResponse)

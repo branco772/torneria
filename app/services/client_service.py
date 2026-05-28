@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
-from app.models.client import Client
-from app.models.job import Job
+from models.client import Client
+from models.job import Job
 
 
 def create_client(db: Session, client_data):

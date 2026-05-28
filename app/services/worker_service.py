@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.models.worker import Worker
+from models.worker import Worker
 
 
 # 🔥 Crear trabajador
