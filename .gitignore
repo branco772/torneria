@@ -1,0 +1,38 @@
+# Node
+node_modules
+dist
+build
+
+# Python
+venv
+.venv
+venv*/
+.venv*/
+ai/venv311/
+ai/.venv/
+__pycache__
+*.pyc
+
+# Env
+.env
+
+# Logs
+*.log
+
+# YOLO / modelos
+*.pt
+*.pth
+runs/
+ai/runs/
+ai/dataset/
+ai/dataset_*/
+ai/datasets/
+*.cache
+
+# Videos
+*.mp4
+*.avi
+*.mov
+
+# Logs
+*.log

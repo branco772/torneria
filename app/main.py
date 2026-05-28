@@ -1,0 +1,24 @@
+from fastapi import FastAPI, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.orm import Session
+from app.core.deps import get_db
+from app.api.api_router import router
+
+
+app = FastAPI()
+
+app.include_router(router)
+
+@app.get("/")
+def test_db(db: Session = Depends(get_db)):
+    return {"message": "Conexión exitosa 🚀"}
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
