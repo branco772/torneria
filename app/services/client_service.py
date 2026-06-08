@@ -1,12 +1,15 @@
 from sqlalchemy.orm import Session
-from models.client import Client
-from models.job import Job
+from app.models.client import Client
+from app.models.job import Job
+
+HIDDEN_STATUS = "hidden"
 
 
 def create_client(db: Session, client_data):
     new_client = Client(
         name=client_data.name,
-        phone=client_data.phone
+        phone=client_data.phone,
+        visibility_status="active"
     )
 
     db.add(new_client)
@@ -17,11 +20,18 @@ def create_client(db: Session, client_data):
 
 
 def get_clients(db: Session):
-    return db.query(Client).all()
+    return db.query(Client)\
+        .filter(Client.visibility_status != HIDDEN_STATUS)\
+        .all()
 
 
 def get_client(db: Session, client_id: int):
-    return db.query(Client).filter(Client.id == client_id).first()
+    return db.query(Client)\
+        .filter(
+            Client.id == client_id,
+            Client.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
 
 
 def update_client(db: Session, client_id: int, client_data):
@@ -45,13 +55,19 @@ def delete_client(db: Session, client_id: int):
     if not client:
         return None
 
-    db.delete(client)
+    client.visibility_status = HIDDEN_STATUS
     db.commit()
+    db.refresh(client)
 
     return client
 
 def get_client_stats(db: Session, client_id: int):
-    jobs = db.query(Job).filter(Job.client_id == client_id).all()
+    jobs = db.query(Job)\
+        .filter(
+            Job.client_id == client_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .all()
 
     total_jobs = len(jobs)
 

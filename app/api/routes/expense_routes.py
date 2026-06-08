@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, Body, HTTPException
 from sqlalchemy.orm import Session
 
-from core.deps import get_db
-from schemas.expense_schema import ExpenseCreate, ExpenseResponse
-from services.expense_service import create_expense, get_expenses, delete_expense
-from core.security import get_current_user
+from app.core.deps import get_db
+from app.schemas.expense_schema import ExpenseCreate, ExpenseResponse
+from app.services.expense_service import create_expense, get_expenses, delete_expense
+from app.core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 

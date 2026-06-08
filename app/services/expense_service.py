@@ -1,8 +1,10 @@
 from sqlalchemy.orm import Session, joinedload
-from models.expense import Expense
-from models.job import Job
+from app.models.expense import Expense
+from app.models.job import Job
 
 from fastapi import HTTPException
+
+HIDDEN_STATUS = "hidden"
 
 # 🔥 Crear gasto
 def create_expense(db: Session, expense_data):
@@ -14,7 +16,12 @@ def create_expense(db: Session, expense_data):
         raise HTTPException(status_code=400, detail="Precio inválido")
 
     if expense_data.job_id:
-        job = db.query(Job).filter(Job.id == expense_data.job_id).first()
+        job = db.query(Job)\
+            .filter(
+                Job.id == expense_data.job_id,
+                Job.visibility_status != HIDDEN_STATUS
+            )\
+            .first()
         if not job:
             raise HTTPException(status_code=400, detail="El trabajo asociado no existe")
 
@@ -26,7 +33,8 @@ def create_expense(db: Session, expense_data):
         unit_price=expense_data.unit_price,
         amount=total,
         category=expense_data.category,
-        job_id=expense_data.job_id
+        job_id=expense_data.job_id,
+        visibility_status="active"
     )
 
     db.add(new_expense)
@@ -38,16 +46,25 @@ def create_expense(db: Session, expense_data):
 
 # 🔥 Listar gastos
 def get_expenses(db: Session):
-    return db.query(Expense).options(joinedload(Expense.job)).all()
+    return db.query(Expense)\
+        .options(joinedload(Expense.job))\
+        .filter(Expense.visibility_status != HIDDEN_STATUS)\
+        .all()
 
 #borrar gasto
 def delete_expense(db, id: int):
-    expense = db.query(Expense).filter(Expense.id == id).first()
+    expense = db.query(Expense)\
+        .filter(
+            Expense.id == id,
+            Expense.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
 
     if not expense:
         return None
 
-    db.delete(expense)
+    expense.visibility_status = HIDDEN_STATUS
     db.commit()
+    db.refresh(expense)
 
     return True

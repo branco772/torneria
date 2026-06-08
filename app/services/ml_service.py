@@ -1,6 +1,6 @@
 import numpy as np
 from sklearn.linear_model import LinearRegression
-from services.dashboard_service import get_monthly_income
+from app.services.dashboard_service import get_monthly_income
 
 
 # 🔥 DATOS EXTERNOS

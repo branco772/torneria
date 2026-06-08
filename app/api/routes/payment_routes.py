@@ -1,14 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
-from core.deps import get_db
-from models.payment import Payment
-from models.job import Job
-from services.job_service import update_job_status
-from schemas.payment_schema import PaymentCreate, PaymentResponse
-from core.security import get_current_user
+from app.core.deps import get_db
+from app.models.payment import Payment
+from app.models.job import Job
+from app.services.job_service import update_job_status
+from app.schemas.payment_schema import PaymentCreate, PaymentResponse
+from app.core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
+HIDDEN_STATUS = "hidden"
 
 
 # 🔥 Crear pago
@@ -18,7 +19,12 @@ def create_payment_route(
     db: Session = Depends(get_db)
 ):
     # verificar que el trabajo exista
-    job = db.query(Job).filter(Job.id == payment_data.job_id).first()
+    job = db.query(Job)\
+        .filter(
+            Job.id == payment_data.job_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
     if not job:
         raise HTTPException(status_code=400, detail="El trabajo no existe")
 
@@ -42,10 +48,23 @@ def create_payment_route(
 # 🔥 Listar pagos
 @router.get("/payments", response_model=list[PaymentResponse])
 def get_payments_route(db: Session = Depends(get_db)):
-    return db.query(Payment).all()
+    return db.query(Payment)\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)\
+        .all()
 
 
 # 🔥 Pagos por trabajo
 @router.get("/payments/job/{job_id}", response_model=list[PaymentResponse])
 def get_payments_by_job_route(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(Job)\
+        .filter(
+            Job.id == job_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Trabajo no encontrado")
+
     return db.query(Payment).filter(Payment.job_id == job_id).all()

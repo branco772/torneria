@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 
-from core.deps import get_db
-from schemas.worker_schema import WorkerCreate, WorkerResponse
-from services.worker_service import (
+from app.core.deps import get_db
+from app.schemas.worker_schema import WorkerCreate, WorkerResponse
+from app.services.worker_service import (
     create_worker,
     get_workers,
     get_worker,
     update_worker,
     delete_worker
 )
-from core.security import get_current_user
+from app.core.security import get_current_user
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 

@@ -1,9 +1,11 @@
 from sqlalchemy import func
 from sqlalchemy.orm import joinedload
-from models.payment import Payment
-from models.job import Job
+from app.models.payment import Payment
+from app.models.job import Job
 
 from fastapi import HTTPException
+
+HIDDEN_STATUS = "hidden"
 
 def create_job(db, job_data):
     if job_data.status == "paid" and not job_data.payment_method:
@@ -27,7 +29,8 @@ def create_job(db, job_data):
         total=total,
         client_id=job_data.client_id,
         worker_id=job_data.worker_id,
-        status=job_data.status
+        status=job_data.status,
+        visibility_status="active"
     )
 
     db.add(new_job)
@@ -54,7 +57,27 @@ def get_jobs(db):
         joinedload(Job.client),
         joinedload(Job.worker),
         joinedload(Job.payments)
-    ).all()
+    ).filter(Job.visibility_status != HIDDEN_STATUS).all()
+
+def get_job(db, job_id):
+    return db.query(Job)\
+        .filter(
+            Job.id == job_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
+
+def hide_job(db, job_id):
+    job = get_job(db, job_id)
+
+    if not job:
+        return None
+
+    job.visibility_status = HIDDEN_STATUS
+    db.commit()
+    db.refresh(job)
+
+    return job
 
 #calcular estado de pago
 def calculate_payment_status(db, job_id, total):

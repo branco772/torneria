@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 2
+names: ['lentes', 'sin_lentes']
+
+roboflow:
+  workspace: logibitss-workspace
+  project: safety_glasses
+  version: 4
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/logibitss-workspace/safety_glasses/dataset/4

@@ -2,8 +2,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 from fastapi import HTTPException
 
-from models.user import User
-from core.security import hash_password, verify_password, create_access_token
+from app.models.user import User
+from app.core.security import hash_password, verify_password, create_access_token
 
 
 def get_user_by_username(db: Session, username: str):

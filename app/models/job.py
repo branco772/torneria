@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from core.database import Base
+from app.core.database import Base
 
 class Job(Base):
     __tablename__ = "jobs"
@@ -17,6 +17,7 @@ class Job(Base):
     worker_id = Column(Integer, ForeignKey("workers.id"))
 
     status = Column(String(20), default="pending")
+    visibility_status = Column(String(20), default="active", nullable=False)
 
     created_at = Column(TIMESTAMP, server_default=func.now())
 

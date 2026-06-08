@@ -2,17 +2,21 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, case
 from datetime import date
 
-from models.payment import Payment
-from models.expense import Expense
+from app.models.payment import Payment
+from app.models.expense import Expense
 
-from models.job import Job
-from models.worker import Worker
-from models.client import Client
+from app.models.job import Job
+from app.models.worker import Worker
+from app.models.client import Client
+
+HIDDEN_STATUS = "hidden"
 
 def get_daily_report(db: Session, report_date: date):
     
     # 🔥 ingresos (pagos del día)
     income = db.query(func.sum(Payment.amount))\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)\
         .filter(func.date(Payment.created_at) == report_date)\
         .scalar()
 
@@ -20,6 +24,7 @@ def get_daily_report(db: Session, report_date: date):
 
     # 🔥 gastos del día
     expenses = db.query(func.sum(Expense.amount))\
+        .filter(Expense.visibility_status != HIDDEN_STATUS)\
         .filter(func.date(Expense.created_at) == report_date)\
         .scalar()
 
@@ -61,6 +66,10 @@ def get_profit_by_worker(db: Session):
         ).label("paid_jobs")
 
     ).join(Job, Job.worker_id == Worker.id)\
+     .filter(
+        Job.visibility_status != HIDDEN_STATUS,
+        Worker.visibility_status != HIDDEN_STATUS
+    )\
      .group_by(Worker.id, Worker.name)\
      .all()
 
@@ -88,6 +97,8 @@ def get_report_by_range(db: Session, start_date: date, end_date: date):
 
     # 🔥 ingresos (pagos en rango)
     income = db.query(func.sum(Payment.amount))\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)\
         .filter(func.date(Payment.created_at) >= start_date)\
         .filter(func.date(Payment.created_at) <= end_date)\
         .scalar()
@@ -96,6 +107,7 @@ def get_report_by_range(db: Session, start_date: date, end_date: date):
 
     # 🔥 gastos en rango
     expenses = db.query(func.sum(Expense.amount))\
+        .filter(Expense.visibility_status != HIDDEN_STATUS)\
         .filter(func.date(Expense.created_at) >= start_date)\
         .filter(func.date(Expense.created_at) <= end_date)\
         .scalar()
@@ -121,9 +133,24 @@ def _date_range(query, model, start_date=None, end_date=None):
     return query
 
 def get_reports_summary(db: Session, start_date=None, end_date=None, category=None):
-    payments_query = _date_range(db.query(Payment), Payment, start_date, end_date)
-    expenses_query = _date_range(db.query(Expense), Expense, start_date, end_date)
-    jobs_query = _date_range(db.query(Job), Job, start_date, end_date)
+    payments_query = _date_range(
+        db.query(Payment).join(Job, Payment.job_id == Job.id).filter(Job.visibility_status != HIDDEN_STATUS),
+        Payment,
+        start_date,
+        end_date
+    )
+    expenses_query = _date_range(
+        db.query(Expense).filter(Expense.visibility_status != HIDDEN_STATUS),
+        Expense,
+        start_date,
+        end_date
+    )
+    jobs_query = _date_range(
+        db.query(Job).filter(Job.visibility_status != HIDDEN_STATUS),
+        Job,
+        start_date,
+        end_date
+    )
 
     if category and category != "all":
         expenses_query = expenses_query.filter(Expense.category == category)
@@ -156,11 +183,14 @@ def get_reports_monthly(db: Session, year: int):
 
     for month in range(1, 13):
         income = db.query(func.coalesce(func.sum(Payment.amount), 0))\
+            .join(Job, Payment.job_id == Job.id)\
+            .filter(Job.visibility_status != HIDDEN_STATUS)\
             .filter(func.extract("year", Payment.created_at) == year)\
             .filter(func.extract("month", Payment.created_at) == month)\
             .scalar() or 0
 
         expenses = db.query(func.coalesce(func.sum(Expense.amount), 0))\
+            .filter(Expense.visibility_status != HIDDEN_STATUS)\
             .filter(func.extract("year", Expense.created_at) == year)\
             .filter(func.extract("month", Expense.created_at) == month)\
             .scalar() or 0
@@ -178,7 +208,12 @@ def get_reports_monthly(db: Session, year: int):
     return data
 
 def get_reports_expenses_by_category(db: Session, start_date=None, end_date=None):
-    query = _date_range(db.query(Expense), Expense, start_date, end_date)
+    query = _date_range(
+        db.query(Expense).filter(Expense.visibility_status != HIDDEN_STATUS),
+        Expense,
+        start_date,
+        end_date
+    )
 
     rows = query.with_entities(
         Expense.category,
@@ -200,7 +235,9 @@ def get_reports_profit(db: Session, start_date=None, end_date=None):
 
 def get_reports_top_jobs(db: Session, start_date=None, end_date=None, limit: int = 10):
     jobs_query = _date_range(
-        db.query(Job).join(Client, Job.client_id == Client.id),
+        db.query(Job)
+        .join(Client, Job.client_id == Client.id)
+        .filter(Job.visibility_status != HIDDEN_STATUS, Client.visibility_status != HIDDEN_STATUS),
         Job,
         start_date,
         end_date
@@ -212,7 +249,12 @@ def get_reports_top_jobs(db: Session, start_date=None, end_date=None, limit: int
 
     for job in jobs:
         job_expenses = float(
-            _date_range(db.query(Expense), Expense, start_date, end_date)
+            _date_range(
+                db.query(Expense).filter(Expense.visibility_status != HIDDEN_STATUS),
+                Expense,
+                start_date,
+                end_date
+            )
             .filter(Expense.job_id == job.id)
             .with_entities(func.coalesce(func.sum(Expense.amount), 0))
             .scalar() or 0

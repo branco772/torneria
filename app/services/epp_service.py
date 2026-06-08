@@ -2,18 +2,32 @@ import cv2
 from ultralytics import YOLO
 import os
 import threading
+import time
 from datetime import datetime, timedelta
 from sqlalchemy import func
-from core.database import SessionLocal
-from models.epp_event import EPPEvent
+from app.core.database import SessionLocal
+from app.models.epp_event import EPPEvent
 
 # 🔥 CARGAR MODELO
-model = YOLO("ai/runs/detect/train-11/weights/best.pt")
+model = YOLO("ai/runs/detect/train-4/weights/best.pt")
 last_event_saved_at = {}
 monitoring_enabled = threading.Event()
+stats_lock = threading.Lock()
+
+CAMERA_URL = os.getenv(
+    "EPP_CAMERA_URL",
+    "rtsp://admin:Cadmus271098.@192.168.1.6:554/cam/realmonitor?channel=1&subtype=0",
+)
+STREAM_WIDTH = int(os.getenv("EPP_STREAM_WIDTH", "720"))
+STREAM_HEIGHT = int(os.getenv("EPP_STREAM_HEIGHT", "480"))
+PROCESS_EVERY_N_FRAMES = int(os.getenv("EPP_PROCESS_EVERY_N_FRAMES", "2"))
+JPEG_QUALITY = int(os.getenv("EPP_JPEG_QUALITY", "82"))
+CONFIDENCE_THRESHOLD = float(os.getenv("EPP_CONFIDENCE_THRESHOLD", "0.35"))
+VIOLATION_LABELS = {"no_helmet", "no_glasses", "no_safety_glasses", "no_gloves", "no_vest"}
 
 
 def start_epp_monitoring():
+    reset_live_stats()
     monitoring_enabled.set()
     return {"camera_on": True}
 
@@ -31,9 +45,10 @@ def generate_frames():
 
     monitoring_enabled.set()
 
-    url = "rtsp://admin:Cadmus271098.@192.168.1.4:554/cam/realmonitor?channel=1&subtype=1"
-
-    cap = cv2.VideoCapture(url, cv2.CAP_FFMPEG)
+    cap = cv2.VideoCapture(CAMERA_URL, cv2.CAP_FFMPEG)
+    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, STREAM_WIDTH)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, STREAM_HEIGHT)
 
     frame_count = 0
 
@@ -42,40 +57,45 @@ def generate_frames():
             success, frame = cap.read()
 
             if not success:
+                time.sleep(0.2)
                 break
 
             frame_count += 1
 
-            # 🔥 SOLO PROCESAR 1 DE CADA 3 FRAMES
-            if frame_count % 3 != 0:
-                continue
+            frame = cv2.resize(frame, (STREAM_WIDTH, STREAM_HEIGHT), interpolation=cv2.INTER_AREA)
+            display_frame = cv2.convertScaleAbs(frame, alpha=1.08, beta=12)
+            should_process = frame_count % max(1, PROCESS_EVERY_N_FRAMES) == 0
 
-            # 🔥 REDUCIR CARGA
-            frame = cv2.resize(frame, (480, 320))
-            frame = cv2.convertScaleAbs(frame, alpha=1.2, beta=30)
+            if should_process:
+                with stats_lock:
+                    total_detections += 1
 
-            total_detections += 1
+                results = model.predict(
+                    display_frame,
+                    imgsz=640,
+                    conf=CONFIDENCE_THRESHOLD,
+                    verbose=False,
+                )
 
-            # 🔥 MÁS RÁPIDO (sin stream=True)
-            results = model(frame)
+                violation_detected = False
 
-            alerts = []
+                for r in results:
+                    for box in r.boxes:
+                        cls = int(box.cls[0])
+                        label = model.names[cls]
 
-            for r in results:
-                for box in r.boxes:
-                    cls = int(box.cls[0])
-                    label = model.names[cls]
+                        if label in VIOLATION_LABELS:
+                            violation_detected = True
+                            confidence = float(box.conf[0]) if box.conf is not None else None
+                            save_evidence(display_frame, label, confidence)
 
-                    if label in ["no_glasses"]:
-                        alerts.append(label)
+                    display_frame = r.plot(line_width=2, font_size=10)
+
+                if violation_detected:
+                    with stats_lock:
                         total_violations += 1
-                        confidence = float(box.conf[0]) if box.conf is not None else None
-                        save_evidence(frame, label, confidence)
 
-                frame = r.plot(line_width=2, font_size=10)
-
-            # 🔥 MENOS PESO EN STREAM
-            _, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 70])
+            _, buffer = cv2.imencode(".jpg", display_frame, [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
             frame_bytes = buffer.tobytes()
 
             yield (b"--frame\r\n"
@@ -119,7 +139,7 @@ def save_epp_event(event_type, confidence, image_path):
 
 
 def get_event_severity(event_type):
-    high = {"no_helmet", "no_glasses"}
+    high = {"no_helmet", "no_glasses", "no_safety_glasses"}
     medium = {"no_gloves", "no_vest"}
 
     if event_type in high:
@@ -134,6 +154,13 @@ def get_event_severity(event_type):
 total_detections = 0
 total_violations = 0
 
+def reset_live_stats():
+    global total_detections, total_violations
+
+    with stats_lock:
+        total_detections = 0
+        total_violations = 0
+
 def get_epp_stats(db=None):
     global total_detections, total_violations
     close_db = False
@@ -143,7 +170,7 @@ def get_epp_stats(db=None):
         close_db = True
 
     try:
-        stored_violations = db.query(func.count(EPPEvent.id)).scalar() or 0
+        evidence_count = db.query(func.count(EPPEvent.id)).scalar() or 0
         open_events = db.query(func.count(EPPEvent.id))\
             .filter(EPPEvent.status == "open")\
             .scalar() or 0
@@ -152,22 +179,26 @@ def get_epp_stats(db=None):
             .filter(EPPEvent.created_at >= since)\
             .scalar() or 0
 
-        detections = max(total_detections, stored_violations)
-        compliance = 0
+        with stats_lock:
+            detections = total_detections
+            violations = total_violations
+
+        compliance = 100
 
         if detections > 0:
-            compliance = int(max(0, (1 - (stored_violations / detections)) * 100))
+            compliance = int(max(0, min(100, (1 - (violations / detections)) * 100)))
 
-        if recent_violations > 20:
+        if violations > 20 or recent_violations > 20:
             risk = "Alto"
-        elif recent_violations > 5:
+        elif violations > 5 or recent_violations > 5:
             risk = "Medio"
         else:
             risk = "Bajo"
 
         return {
             "detections": detections,
-            "violations": stored_violations,
+            "violations": violations,
+            "evidence_count": evidence_count,
             "open_events": open_events,
             "recent_violations": recent_violations,
             "compliance": compliance,

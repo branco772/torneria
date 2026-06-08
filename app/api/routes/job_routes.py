@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session, joinedload
-from models.job import Job
-from core.deps import get_db
-from schemas.job_schema import JobCreate, JobResponse
-from services.job_service import create_job, get_jobs
-from core.security import get_current_user
+from sqlalchemy.orm import Session
+from app.core.deps import get_db
+from app.schemas.job_schema import JobCreate, JobResponse
+from app.services.job_service import create_job, get_jobs, hide_job
+from app.core.security import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
@@ -25,23 +24,13 @@ def list_jobs(db: Session = Depends(get_db)):
 @router.delete("/jobs/{id}")
 def delete_job(id: int, db: Session = Depends(get_db)):
 
-    job = db.query(Job).filter(Job.id == id).first()
+    job = hide_job(db, id)
 
     if not job:
         raise HTTPException(
             status_code=404,
             detail="Trabajo no encontrado"
         )
-
-    # 🔥 NO permitir borrar si tiene pagos
-    if job.payments and len(job.payments) > 0:
-        raise HTTPException(
-            status_code=400,
-            detail="No puedes eliminar un trabajo con pagos registrados"
-        )
-
-    db.delete(job)
-    db.commit()
 
     return {
         "message": "Trabajo eliminado"

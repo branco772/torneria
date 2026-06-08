@@ -1,20 +1,23 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, extract
 
-from models.payment import Payment
-from models.expense import Expense
-from models.job import Job
-from models.client import Client
+from app.models.payment import Payment
+from app.models.expense import Expense
+from app.models.job import Job
+from app.models.client import Client
 from datetime import datetime
 
+HIDDEN_STATUS = "hidden"
 
 
 def get_dashboard(db: Session, month: int = None, year: int = None):
 
     # 📅 Filtros por fecha
-    job_query = db.query(Job)
-    payment_query = db.query(Payment)
-    expense_query = db.query(Expense)
+    job_query = db.query(Job).filter(Job.visibility_status != HIDDEN_STATUS)
+    payment_query = db.query(Payment)\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)
+    expense_query = db.query(Expense).filter(Expense.visibility_status != HIDDEN_STATUS)
 
     if month and year:
         job_query = job_query.filter(
@@ -49,15 +52,16 @@ def get_dashboard(db: Session, month: int = None, year: int = None):
 
     # 📆 Gastos de hoy
     expenses_today = db.query(func.sum(Expense.amount)).filter(
+        Expense.visibility_status != HIDDEN_STATUS,
         extract("day", Expense.created_at) == extract("day", func.now()),
         extract("month", Expense.created_at) == extract("month", func.now()),
         extract("year", Expense.created_at) == extract("year", func.now()),
     ).scalar() or 0
 
     # 📦 Estado de trabajos
-    jobs_pending = db.query(func.count(Job.id)).filter(Job.status == "pending").scalar() or 0
-    jobs_credit = db.query(func.count(Job.id)).filter(Job.status == "credit").scalar() or 0
-    jobs_paid = db.query(func.count(Job.id)).filter(Job.status == "paid").scalar() or 0
+    jobs_pending = db.query(func.count(Job.id)).filter(Job.status == "pending", Job.visibility_status != HIDDEN_STATUS).scalar() or 0
+    jobs_credit = db.query(func.count(Job.id)).filter(Job.status == "credit", Job.visibility_status != HIDDEN_STATUS).scalar() or 0
+    jobs_paid = db.query(func.count(Job.id)).filter(Job.status == "paid", Job.visibility_status != HIDDEN_STATUS).scalar() or 0
 
     return {
         "income": total_paid,
@@ -88,12 +92,13 @@ def get_income_by_day(db, month=None, year=None):
     query = db.query(
         func.date(Payment.created_at).label("date"),
         func.sum(Payment.amount).label("total")
-    )
+    ).join(Job, Payment.job_id == Job.id)
 
     # 🔥 filtro por mes/año
     query = query.filter(
         extract("month", Payment.created_at) == month,
-        extract("year", Payment.created_at) == year
+        extract("year", Payment.created_at) == year,
+        Job.visibility_status != HIDDEN_STATUS
     )
 
     results = query.group_by(
@@ -114,6 +119,8 @@ def get_monthly_income(db):
         extract("year", Payment.created_at).label("year"),
         extract("month", Payment.created_at).label("month"),
         func.sum(Payment.amount).label("total")
+    ).join(Job, Payment.job_id == Job.id).filter(
+        Job.visibility_status != HIDDEN_STATUS
     ).group_by(
         "year", "month"
     ).order_by(
@@ -135,13 +142,14 @@ def get_top_debtors(db: Session):
     jobs_sub = db.query(
         Job.client_id,
         func.sum(Job.total).label("total_jobs")
-    ).group_by(Job.client_id).subquery()
+    ).filter(Job.visibility_status != HIDDEN_STATUS).group_by(Job.client_id).subquery()
 
     # 💰 Pagos por cliente
     payments_sub = db.query(
         Job.client_id,
         func.coalesce(func.sum(Payment.amount), 0).label("total_paid")
     ).join(Job, Payment.job_id == Job.id)\
+     .filter(Job.visibility_status != HIDDEN_STATUS)\
      .group_by(Job.client_id).subquery()
 
     # 🔥 Unimos ambos
@@ -153,6 +161,7 @@ def get_top_debtors(db: Session):
     )\
     .join(jobs_sub, jobs_sub.c.client_id == Client.id)\
     .outerjoin(payments_sub, payments_sub.c.client_id == Client.id)\
+    .filter(Client.visibility_status != HIDDEN_STATUS)\
     .all()
 
     data = []
@@ -176,17 +185,17 @@ def get_alerts(db: Session):
     alerts = []
 
     # 🔴 1. CLIENTES CON DEUDA (PRIORIDAD)
-    clients = db.query(Client).all()
+    clients = db.query(Client).filter(Client.visibility_status != HIDDEN_STATUS).all()
 
     for client in clients:
 
         total_jobs = db.query(func.sum(Job.total))\
-            .filter(Job.client_id == client.id)\
+            .filter(Job.client_id == client.id, Job.visibility_status != HIDDEN_STATUS)\
             .scalar() or 0
 
         total_paid = db.query(func.sum(Payment.amount))\
             .join(Job, Payment.job_id == Job.id)\
-            .filter(Job.client_id == client.id)\
+            .filter(Job.client_id == client.id, Job.visibility_status != HIDDEN_STATUS)\
             .scalar() or 0
 
         debt = total_jobs - total_paid
@@ -208,7 +217,7 @@ def get_alerts(db: Session):
             })
 
     # 🟡 2. TRABAJOS ATRASADOS
-    jobs = db.query(Job).filter(Job.status != "paid").all()
+    jobs = db.query(Job).filter(Job.status != "paid", Job.visibility_status != HIDDEN_STATUS).all()
 
     for job in jobs:
         days = (datetime.now() - job.created_at).days
@@ -228,6 +237,7 @@ def get_alerts(db: Session):
 
     # 🔵 3. GASTOS ALTOS DE HOY
     total_expenses = db.query(func.sum(Expense.amount)).filter(
+        Expense.visibility_status != HIDDEN_STATUS,
         extract("day", Expense.created_at) == extract("day", func.now()),
         extract("month", Expense.created_at) == extract("month", func.now()),
         extract("year", Expense.created_at) == extract("year", func.now()),
@@ -258,7 +268,7 @@ def get_expenses_by_category(db: Session):
     results = db.query(
         Expense.category,
         func.sum(Expense.amount)
-    ).group_by(Expense.category).all()
+    ).filter(Expense.visibility_status != HIDDEN_STATUS).group_by(Expense.category).all()
 
     return [
         {

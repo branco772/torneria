@@ -1,7 +1,7 @@
 from sqlalchemy import Column, ForeignKey, Integer, String, DECIMAL, TIMESTAMP
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
-from core.database import Base
+from app.core.database import Base
 
 
 class Expense(Base):
@@ -18,4 +18,5 @@ class Expense(Base):
 
     created_at = Column(TIMESTAMP, server_default=func.now())
     category = Column(String(50), default="otros")
+    visibility_status = Column(String(20), default="active", nullable=False)
     job = relationship("Job")

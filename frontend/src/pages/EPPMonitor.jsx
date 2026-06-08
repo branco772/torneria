@@ -25,6 +25,7 @@ function EPPMonitor() {
   const [stats, setStats] = useState({
     detections: 0,
     violations: 0,
+    evidence_count: 0,
     compliance: 0,
     risk: "Bajo",
   });
@@ -171,7 +172,7 @@ function EPPMonitor() {
         <MetricCard
           title="Infracciones"
           value={stats.violations}
-          subtitle={`${violationRate.toFixed(1)}% de eventos`}
+          subtitle={`${violationRate.toFixed(1)}% de frames analizados`}
           icon={ShieldAlert}
           tone="red"
         />
@@ -287,7 +288,7 @@ function SafetySummary({ stats, risk, compliance, violationRate, lastUpdate }) {
 
       <div className="mt-6 grid grid-cols-2 gap-3">
         <MiniStat label="Detecciones" value={stats.detections} />
-        <MiniStat label="Evidencias" value={stats.violations} />
+        <MiniStat label="Evidencias" value={stats.evidence_count ?? stats.violations} />
       </div>
 
       <p className="mt-5 flex items-center gap-2 text-xs text-slate-500">
@@ -338,7 +339,7 @@ function ViolationsPanel({ violations }) {
         ) : (
           violations.map((item) => (
             <div
-              key={item.filename}
+              key={item.id ?? item.filename}
               className="rounded-xl border border-slate-800 bg-slate-950/50 p-3 transition hover:border-red-500/40"
             >
               <div className="flex items-start justify-between gap-3">
@@ -564,6 +565,7 @@ function getEventLabel(value = "") {
   const eventType = String(value);
   const labels = {
     no_glasses: "Sin lentes de seguridad",
+    no_safety_glasses: "Sin lentes de seguridad",
     no_helmet: "Sin casco",
     no_gloves: "Sin guantes",
     no_vest: "Sin chaleco",

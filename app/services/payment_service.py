@@ -1,16 +1,23 @@
 from sqlalchemy.orm import Session
-from models.payment import Payment
-from models.job import Job
-from services.job_service import update_job_status
+from app.models.payment import Payment
+from app.models.job import Job
+from app.services.job_service import update_job_status
 
 from fastapi import HTTPException
 from sqlalchemy import func
+
+HIDDEN_STATUS = "hidden"
 
 #Crear pago
 def create_payment(db: Session, payment_data):
 
     # 🔍 buscar trabajo
-    job = db.query(Job).filter(Job.id == payment_data.job_id).first()
+    job = db.query(Job)\
+        .filter(
+            Job.id == payment_data.job_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
     if not job:
         raise HTTPException(status_code=404, detail="Trabajo no existe")
 
@@ -53,9 +60,22 @@ def create_payment(db: Session, payment_data):
 
 #listar pagos
 def get_payments(db: Session):
-    return db.query(Payment).all()
+    return db.query(Payment)\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)\
+        .all()
 
 
 #pagos por trabajo
 def get_payments_by_job(db: Session, job_id: int):
+    job = db.query(Job)\
+        .filter(
+            Job.id == job_id,
+            Job.visibility_status != HIDDEN_STATUS
+        )\
+        .first()
+
+    if not job:
+        return []
+
     return db.query(Payment).filter(Payment.job_id == job_id).all()

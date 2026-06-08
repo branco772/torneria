@@ -1,20 +1,22 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from models.job import Job
-from models.expense import Expense
-from models.payment import Payment
-from models.client import Client
-from models.worker import Worker
+from app.models.job import Job
+from app.models.expense import Expense
+from app.models.payment import Payment
+from app.models.client import Client
+from app.models.worker import Worker
 
-from core.deps import get_db
-from schemas.dashboard_schema import DashboardResponse
-from services.dashboard_service import get_dashboard, get_income_by_day, get_top_debtors, get_alerts, get_expenses_by_category
-from core.security import get_current_user
+from app.core.deps import get_db
+from app.schemas.dashboard_schema import DashboardResponse
+from app.services.dashboard_service import get_dashboard, get_income_by_day, get_top_debtors, get_alerts, get_expenses_by_category
+from app.core.security import get_current_user
 from typing import Optional
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
-from services.ml_service import predict_income
+from app.services.ml_service import predict_income
+
+HIDDEN_STATUS = "hidden"
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
@@ -53,10 +55,15 @@ def predict_income_endpoint(db: Session = Depends(get_db)):
 def get_summary(db: Session = Depends(get_db)):
 
     # 💰 Ingresos reales (pagos)
-    total_income = db.query(func.sum(Payment.amount)).scalar() or 0
+    total_income = db.query(func.sum(Payment.amount))\
+        .join(Job, Payment.job_id == Job.id)\
+        .filter(Job.visibility_status != HIDDEN_STATUS)\
+        .scalar() or 0
 
     # 💸 Gastos
-    total_expenses = db.query(func.sum(Expense.amount)).scalar() or 0
+    total_expenses = db.query(func.sum(Expense.amount))\
+        .filter(Expense.visibility_status != HIDDEN_STATUS)\
+        .scalar() or 0
 
     # 💵 Ganancia real
     profit = total_income - total_expenses
@@ -64,7 +71,7 @@ def get_summary(db: Session = Depends(get_db)):
     # 📊 Pendiente (solo trabajos pendientes)
     pending = (
         db.query(func.sum(Job.total))
-        .filter(Job.status == "pending")
+        .filter(Job.status == "pending", Job.visibility_status != HIDDEN_STATUS)
         .scalar() or 0
     )
 
@@ -92,7 +99,7 @@ def expenses_by_category(
     query = db.query(
         Expense.category,
         func.sum(Expense.amount).label("total")
-    )
+    ).filter(Expense.visibility_status != HIDDEN_STATUS)
 
     if month and year:
         query = query.filter(
@@ -120,6 +127,10 @@ def top_clients(
             func.sum(Job.total).label("total")
         )
         .join(Job, Job.client_id == Client.id)
+        .filter(
+            Job.visibility_status != HIDDEN_STATUS,
+            Client.visibility_status != HIDDEN_STATUS
+        )
     )
 
     if month and year:
@@ -150,6 +161,10 @@ def top_workers(
             func.sum(Job.total).label("total")
         )
         .join(Job, Job.worker_id == Worker.id)
+        .filter(
+            Job.visibility_status != HIDDEN_STATUS,
+            Worker.visibility_status != HIDDEN_STATUS
+        )
     )
 
     if month and year:
@@ -166,3 +181,5 @@ def top_workers(
     )
 
     return [{"name": r.name, "total": float(r.total)} for r in results]
+
+

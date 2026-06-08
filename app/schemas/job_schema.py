@@ -1,6 +1,6 @@
 from pydantic import BaseModel
 from typing import List, Optional
-from schemas.payment_schema import PaymentResponse
+from app.schemas.payment_schema import PaymentResponse
 from datetime import datetime
 
 class ClientSimple(BaseModel):

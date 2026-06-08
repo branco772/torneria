@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, ForeignKey, DECIMAL, Enum, TIMESTAMP
 from sqlalchemy.sql import func
-from core.database import Base
+from app.core.database import Base
 
 
 class Payment(Base):
