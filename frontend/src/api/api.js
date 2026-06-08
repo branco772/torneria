@@ -1,10 +1,9 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://prior-accessories-titten-host.trycloudflare.com",
+  baseURL: import.meta.env.VITE_API_URL,
 });
 
-// 🔥 INTERCEPTOR (CLAVE)
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
 
